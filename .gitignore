@@ -1,2 +1,5 @@
 # Sublime Text related
 *.sublime-workspace
+
+# Jupyter related
+.ipynb_checkpoints/
