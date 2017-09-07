@@ -10,26 +10,23 @@ Currently, the repository is structured like this:
 
     smc2017
      |
-     |- course_material                     This is where all the distributed
-     |                                      material from the course is stored.
+     |- course_material                     This is where all the distributed material from the course is stored.
      |   |
      |   |- exercise_sheets                 Contains all exercise sheets.
      |   |
-     |   |- handwritten_notes               Contains handwritten notes from the 
-     |   |                                  course.
+     |   |- handwritten_notes               Contains handwritten notes from the course.
      |   |
      |   |- slides                          Contains all slide decks from the course.
      |   |
-     |   |- SMC2017.pdf                     The 2017 draft of the SMC lecture notes 
-     |                                      that Thomas and Fredrik are working on.
+     |   |- SMC2017.pdf                     The 2017 draft of the SMC lecture notes that Thomas and Fredrik are 
+     |                                      working on.
      | 
      |- solutions                           This is where all solutions are stored.
          |
          |- exercises_on_paper              Theoretical exercises solved on paper.
          |
-         |- python notebooks                Jupyter notebooks written in Python   
-                                            containing solutions to practical 
-                                            exercises.
+         |- python notebooks                Jupyter notebooks written in Python containing solutions to 
+                                            practical exercises.
 
 Everybody is welcome to clone the repository and send pull requests with additional solutions and notes. 
 
