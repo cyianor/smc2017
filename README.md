@@ -25,7 +25,7 @@ Currently, the repository is structured like this:
          |
          |- exercises_on_paper              Theoretical exercises solved on paper.
          |
-         |- python notebooks                Jupyter notebooks written in Python containing solutions to 
+         |- python_notebooks                Jupyter notebooks written in Python containing solutions to 
                                             practical exercises.
 
 Everybody is welcome to clone the repository and send pull requests with additional solutions and notes. 
@@ -33,4 +33,7 @@ Everybody is welcome to clone the repository and send pull requests with additio
 If Git really isn't your thing (it should though, I feel it is becoming ever more omnipresent), then you can also email me your solutions to felix[dot]held[at]fcc[dot]chalmers[dot]se and I will upload them here.
 
 All the best,
-Felix
+
+Felix Held (felix[dot]held[at]fcc[dot]chalmers[dot]se)<br>
+Fraunhofer-Chalmers Centre<br>
+Gothenburg, Sweden
