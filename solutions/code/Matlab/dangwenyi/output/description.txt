@@ -1,0 +1,3 @@
+ex I.1b):
+	plot1.png - Histogram of the uniformly distributed numbers
+	plot2.png - Histogram of numbers transformed by quantile function of the normal distribution
