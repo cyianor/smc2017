@@ -57,16 +57,20 @@ the repository tidy.
                     |- plot2.png
 
 In summary:
-    - Locate the programming language you were using or create a folder for it, in case it does not exist yet
-    - Create a folder with some kind of name that separates your solutions from solutions others have written
-      in the same language, e.g. `fheld` or `freli`, to avoid confusion about which solutions belong together.
-    - File names should follow the pattern
+-  Locate the programming language you were using or create a folder for it, in case it does not exist yet
+-  Create a folder with some kind of name that separates your solutions from solutions others have written
+   in the same language, e.g. `fheld` or `freli`, to avoid confusion about which solutions belong together.
+-  File names should follow the pattern
+   
         `ex` + exercise sheet roman numeral + file extension (e.g. `.py`)
-      if the whole exercise sheet is in solved in one file and
+   
+   if the whole exercise sheet is in solved in one file and
+   
         `ex` + exercise sheet roman numeral + `_` + exercise numbers (possibly separated by `and`) + file_extension
-      if only some exercises of an exercise sheet were solved in that file.
-    - A folder for output, e.g. plots, can be created in your folder as well. You can either describe in
-      your code what output you will get or add an additional file explaining the output.
+   
+   if only some exercises of an exercise sheet were solved in that file.
+-  A folder for output, e.g. plots, can be created in your folder as well. You can either describe in
+   your code what output you will get or add an additional file explaining the output.
 
 If Git really isn't your thing (it should though, I feel it is becoming ever more omnipresent), then you can also email me your solutions to felix[dot]held[at]fcc[dot]chalmers[dot]se and I will upload them here.
 
