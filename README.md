@@ -14,6 +14,8 @@ Currently, the repository is structured like this:
 
     smc2017
      |
+     |- additional                          Material created during the SMC sessions at FCC
+     | 
      |- course_material                     This is where all the distributed material from the course is stored.
      |   |
      |   |- exercise_sheets                 Contains all exercise sheets.

@@ -3,3 +3,6 @@
 
 # Jupyter related
 .ipynb_checkpoints/
+
+# Slides
+additional/*.slides.html
