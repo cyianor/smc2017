@@ -1,0 +1,565 @@
+---
+title: 'SMC: Exercises set II'
+author: "Niharika"
+date: "June 17, 2018"
+fontsize: 10pt 
+geometry: margin=0.5in 
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r, echo=FALSE, results='hide', message=FALSE, warning=FALSE}
+setwd("~/RProjects/SMC_course/")
+library(weights)
+library(mvtnorm)
+library(MASS)
+library(plotly)
+library(smcUtils)
+library(matrixStats)
+```
+
+This document provides solution for the Exercises set II given at  <http://www.it.uu.se/research/systems_and_control/education/2017/smc/homework/SMC2017_exercises2.pdf>.
+
+
+#### II.1 Likelihood estimates for the stochastic volatility model
+We consider the following stochastic volatility model:
+\begin{align*}
+x_t &\mid x_{t-1} \sim N(x_t; \phi x_t, \sigma^2)\\
+y_t &\mid x_{t} \sim N(y_t; 0, \beta^2 \ exp(x_t)) \\
+\theta &= \{ \phi, \sigma, \beta\} \\
+\end{align*}
+
+Given the observations $y$, $\theta = \{0.98, 0.16 \}$, and $\beta \in (0, 2)$, estimate the likelihood using the bootstrap particle filter with $N =  500$ particles. 
+
+
+```{r}
+#Read the observations and plot them
+y <- read.csv("seOMXlogreturns2012to2014.csv", header = FALSE)
+y <- y[,1]
+T <- length(y)
+plot_ly(x = c(1:T), y = y, 
+        name = 'Simulated States', type = 'scatter', mode = 'lines')
+
+########## Boot strap particle filter#############
+BPF <- function(param, x0, y, N = 100, resample=TRUE)
+{
+  T <- length(y) # number of states
+  #Initialize the parameters
+  A <- param[1] # coefficient 
+  Q <- param[2] # process noise 
+  beta <- param[3] # contributes in measurement noise
+  
+  # define variables
+  loglikelihood <- 0
+  particles <- matrix(0, nrow = N, ncol = T)
+  normalisedWeights <- matrix(0, nrow = N, ncol = T)
+  
+  # Initialize variables for state 1
+  # Propagation step
+  particles[, 1] <- A * x0 + sqrt(Q) * rnorm(N)
+  # Compute likelihood
+  weights <- dnorm(y[1], mean = 0, sd = sqrt(beta)*exp(particles[ ,1]/2), log = TRUE)
+  # Normalize weights
+  max_weight <- max(weights)
+  weights <- weights - max_weight
+  normalisedWeights[, 1] <- exp(weights) / sum(exp(weights))
+  # accumulate the log-likelihood
+  loglikelihood = loglikelihood + max_weight + 
+                  log(sum(exp(weights))) - log(N)
+
+  for (t in 2:T) {
+    # Resampling step
+    if(resample)
+    {
+      newAncestors <- multinomial.resample(normalisedWeights[, t - 1])
+    }
+    else
+    {
+      newAncestors <- 1:N
+    } 
+    # Propagation step
+    particles[, t] <- A * particles[newAncestors, t-1] + 
+      sqrt(Q) * rnorm(N)
+    
+    #Likelihood
+    weights <- dnorm(y[t], mean = 0, sd = sqrt(beta)*exp(particles[, t]/2), log = TRUE)
+    
+    #Normalize
+    max_weight <- max(weights)
+    weights <- weights - max_weight
+    normalisedWeights[, t] <- exp(weights) / sum(exp(weights))
+    
+    # accumulate the log-likelihood
+    loglikelihood = loglikelihood + max_weight + 
+      log(sum(exp(weights))) - log(N)
+  }
+  #return(list(x = x, m = m))
+  return(loglikelihood)
+}
+
+# given parameters
+phi <- 0.98
+sigma <- 0.16
+beta_seq <- seq(0.5, 2, by = .1)
+ll <- matrix(0, 10, length(beta_seq))
+N = 500
+for (i in 1:length(beta_seq)) {
+  for (k in 1:10) {
+    x0 <- 0.8 * rnorm(N)
+    param <- c(0.98, sigma^2, (beta_seq[i])^2)
+    result <- BPF(param, x0, y, N = N)
+    ll[k,i] <- result
+  }
+}
+colnames(ll) <- as.character(round(beta_seq,1))
+boxplot(ll)
+```
+
+#### (b)  how $N$ affects the variance of the log-likelihood estimate
+
+```{r}
+N_seq <- c(10, 15, 20, 25, 40, 50, 75, 100, 150, 200)
+ll_var <- rep(0, length(N_seq))
+ll <- matrix(0, 50, length(N_seq))
+for (i in 1:length(N_seq)) {
+  N <- N_seq[i]
+  for (k in 1:50) {
+    x0 <- 0.8 * rnorm(N)
+    param <- c(0.98, sigma^2, 0.7^2)
+    result <- BPF(param, x0, y, N = N)
+    ll[k,i] <- result
+  }
+  ll_var[i] <- var(ll[,i])
+}
+plot_ly(x=N_seq, y=ll_var, name = ' ', type = 'scatter', mode = "lines+markers")
+```
+
+Conclusion: Variance decreases exponentially with increasing $N$.
+
+#### how $T$ affects the variance of the log-likelihood estimate
+
+```{r}
+T_seq <- seq(10, 500, length = 15)
+ll_var <- rep(0, length(T_seq))
+ll <- matrix(0, 50, length(T_seq))
+N=200
+for (i in 1:length(T_seq)) {
+  T <- T_seq[i]
+  for (k in 1:50) {
+    x0 <- 0.8 * rnorm(N)
+    param <- c(0.98, sigma^2, 0.9^2)
+    result <- BPF(param, x0, y[1:T], N = N)
+    ll[k,i] <- result
+  }
+  ll_var[i] <- var(ll[,i])
+}
+plot_ly(x=T_seq, y=ll_var, name = ' ', type = 'scatter', mode = "lines+markers")
+```
+
+
+Variance increases almost linearly with increasing $T$.
+
+
+#### (c) Study the influence of resampling on the variance of the estimator
+
+```{r}
+N <- 500
+ll <- rep(0, 10)
+for (k in 1:10) {
+    x0 <- 0.8 * rnorm(N)
+    param <- c(0.98, sigma^2, 0.9^2)
+    result <- BPF(param, x0, y[1:T], N = N, resample = TRUE)
+    ll[k] <- result
+  }
+
+ll1 <- rep(0, 10)
+for (k in 1:10) {
+   x0 <- 0.8 * rnorm(N)
+   param <- c(0.98, sigma^2, 0.9^2)
+   result <- BPF(param, x0, y[1:T], N = N, resample = FALSE)
+   ll1[k] <- result
+}  
+
+
+ll_df <- cbind(ll, ll1)
+colnames(ll_df) <- c("with resampling", "without resampling")
+boxplot(ll_df)
+
+```
+
+Without resampling the variance is more but log-likelihood is much lower.
+
+
+#### II.2 Fully adapted particle filter
+```{r}
+# Simulated data
+T <- 100
+x <- rep(0, T)
+y <- rep(0, T)
+x0 <- 0.1
+x[1] <- cos(x0)^2 + rnorm(1)
+y[1] <- 2*x[1] + rnorm(1, 0, .1)
+for (t in 2:T) {
+  x[t] <- cos(x[t-1])^2 + rnorm(1)
+  y[t] <- 2*x[t] + rnorm(1, 0, .1)
+}
+
+plot_ly(x = c(1:T), y = x, line = list(color = "blue"),
+        name = 'Simulated States', type = 'scatter', mode = 'markers+lines')
+
+plot_ly(x = c(1:T), y = y, line = list(color = "red"),
+        name = 'Observations', type = 'scatter', mode = 'markers+lines')
+```
+
+
+
+```{r}
+########## Auxiliary particle filter#############
+
+APF <- function(x0, y, N = 100)
+{
+  T = length(y)
+  loglikelihood <- 0
+  #state at t=0
+  x <- matrix(rep(0, T*N), nrow = T)
+  # Step 1. Initialize
+  x[1, ] <- 0.1/sqrt(4.01)*rnorm(N, 0, 1) + (2/4.01) * y[1]  + .01/4.01 * cos(x0)^2
+    
+  for (t in 2:T) {
+    # compute resampling weights
+    resamp_weights = dnorm(y[t], mean = 2*cos(x[t-1, ])^ 2, 
+                          sd = sqrt(4.01))
+    
+    # Normalize the weights
+    resamp_weights = resamp_weights / sum(resamp_weights)
+    
+    # Resampling step
+    ancestors <- sample(1:N, size = N, replace = TRUE, prob = resamp_weights)
+    
+    #propogation step
+    x[t, ] <- 0.1/sqrt(4.01)*rnorm(N, 0, 1) + (2/4.01) * y[t]  + .01/4.01 * cos(x[t, ancestors])^2
+    
+  }
+  return(x)
+}
+N <- 1000
+x0 <- rep(.1, N)
+result_x <- APF(x0, y, N = N)
+x_hat <- rowMeans(result_x)
+T = length(y)
+p <- plot_ly(x = c(1:T), y = x, line = list(color = "orange"),
+        name = 'Simulated states', type = 'scatter', mode = 'markers+lines')
+add_lines(p, x = c(1:T), y = x_hat, line = list(color = "blue"), name = 'Filtered states', type = 'scatter', mode = 'markers+lines')
+
+
+```
+
+Bootstrap particle filter
+```{r}
+bootstrapPF <- function(x0, y, N = 100)
+{
+  T <- length(y) # number of states
+  
+  # define variables
+  loglikelihood <- 0
+  particles <- matrix(0, nrow = N, ncol = T)
+  normalisedWeights <- matrix(0, nrow = N, ncol = T)
+  xHatFiltered <-rep(0, T)
+  
+  # Initialize variables for state 1
+  # Propagation step
+  particles[, 1] <- cos(x0)^2 + rnorm(N, 0, 1)
+  # Compute likelihood
+  weights <- dnorm(y[1], mean = 2*particles[, 1], sd = .1, log = TRUE)
+  # Normalize weights
+  max_weight <- max(weights)
+  weights <- weights - max_weight
+  normalisedWeights[, 1] <- exp(weights) / sum(exp(weights))
+  # accumulate the log-likelihood
+  loglikelihood = loglikelihood + max_weight + 
+                  log(sum(exp(weights))) - log(N)
+  xHatFiltered[1] <- sum(particles[, 1]*normalisedWeights[, 1])
+  
+  for (t in 2:T) {
+    newAncestors <- multinomial.resample(normalisedWeights[, t - 1])
+     
+    # Propagation step
+    particles[, t] <- cos(particles[newAncestors, t-1])^2 + rnorm(N, 0, 1)
+      
+    #Likelihood
+    weights <- dnorm(y[t], mean = particles[, t], sd = .1, log = TRUE)
+    
+    #Normalize
+    max_weight <- max(weights)
+    weights <- weights - max_weight
+    normalisedWeights[, t] <- exp(weights) / sum(exp(weights))
+    
+    # accumulate the log-likelihood
+    loglikelihood = loglikelihood + max_weight + 
+      log(sum(exp(weights))) - log(N)
+    
+    # Estimate the state
+    xHatFiltered[t] <- sum(particles[, t]*normalisedWeights[, t])
+  }
+  return(list(xHatFiltered = xHatFiltered, particles=particles, normalisedWeights = normalisedWeights))
+}
+
+N <- 1000
+x0 <- rep(.1, N)
+result = bootstrapPF(x0, y, N = N)
+T = length(y)
+p <- plot_ly(x = c(1:T), y = x, line = list(color = "orange"),
+        name = 'Simulated states', type = 'scatter', mode = 'markers+lines')
+add_lines(p, x = c(1:T), y = result$xHatFiltered, line = list(color = "blue"), name = 'Filtered states', type = 'scatter', mode = 'markers+lines')
+
+
+```
+
+
+Comparison of variances
+
+```{r}
+M = 50
+N = 20
+
+apf_estimates = matrix(0, M, T)
+bpf_estimates = matrix(0, M, T)
+N <- 1000
+x0 <- rep(.1, N)
+
+for (k in 1:M)
+{
+  result_x = APF(x0, y, N)
+  apf_estimates[k,] = x_hat <- rowMeans(result_x)
+  result = bootstrapPF(x0, y, N = N)
+  bpf_estimates[k,] = result$xHatFiltered
+}    
+fully_adapted_variances = colVars(apf_estimates)
+bootstrap_variances = colVars(bpf_estimates)
+
+p <- plot_ly(x = c(1:T), y = fully_adapted_variances, line = list(color = "orange"),
+        name = 'Fully adapted variances', type = 'scatter', mode = 'markers+lines')
+add_lines(p, x = c(1:T), y = bootstrap_variances, line = list(color = "blue"), name = 'Bootstrap variances', type = 'scatter', mode = 'markers+lines')
+
+```
+
+#### II.4 Forgetting
+Consider the linear state space model (SSM) 
+\begin{align}
+\begin{array}{rcll} X_t &=  0.7 X_{t - 1} \\ 
+Y_t   &=   0.5 X_t + E_t,   \qquad E_t \sim \mathcal{N}(0, 0.1) \end{array} \end{align}
+with $X_0 \sim \mathcal{N}(0, 1)$.
+
+```{r}
+# Simulated data with Q = .01
+T <- 100
+x <- rep(0, T)
+y <- rep(0, T)
+x0 <- rnorm(1)
+A <- 0.7
+C <- 0.5
+Q <- 0.01
+R <- 0.1
+
+x[1] <- A*x0 + sqrt(Q)*rnorm(1)
+y[1] <- C*x[1] + rnorm(1, 0, .1)
+for (t in 2:T) {
+  x[t] <- A*x[t-1] + sqrt(Q)*rnorm(1)
+  y[t] <- C*x[t] + rnorm(1, 0, .1)
+}
+
+plot_ly(x = c(1:T), y = x, line = list(color = "blue"),
+        name = 'Simulated States', type = 'scatter', mode = 'lines')
+
+plot_ly(x = c(1:T), y = y, line = list(color = "red"),
+        name = 'Observations', type = 'scatter', mode = 'lines')
+
+```
+
+Kalman filter, the exact solution to the filtering problem
+
+```{r}
+kalman_filter <- function(param, x0, p0, y){
+  # Number of states
+  T = length(y)
+    
+  #Initialize the parameters
+  A <- param[1] # coefficient 
+  Q <- param[2] # process noise 
+  C <- param[3] # coefficient 
+  R <- param[4] # measurement noise
+  
+  # Filtered means and standard deviations
+  means_filtered = rep(0, T)
+  covs_filtered = rep(0, T)
+
+  # Update the state 1
+  # Covariance Time update
+  covs_time_upd = A^2 * p0 + Q
+  # Kalman gain
+  kalman_gain = C * covs_time_upd / (C^2 * covs_time_upd + R)
+  # Filter updates
+  means_filtered[1] = kalman_gain * y[1]
+  covs_filtered[1] = covs_time_upd - kalman_gain * C * covs_time_upd
+  
+  # Kalman recursion
+  for (t in 2:T)
+  {
+      # Time update
+      covs_time_upd = A^2* covs_filtered[t] + Q
+      # Kalman gain
+      kalman_gain = C * covs_time_upd / (C^2 * covs_time_upd + R)
+
+      # Filter updates
+      means_filtered[t] = A * means_filtered[t-1] + 
+          kalman_gain * (y[t] - C * A * means_filtered[t-1])
+      covs_filtered[t] = covs_time_upd - kalman_gain * C * covs_time_upd
+  }   
+  return(list(means_filtered = means_filtered, covs_filtered = covs_filtered))
+}
+
+```
+
+An implementation of bootstrap particle filter.
+```{r, warning=FALSE}
+# Bootstrap particle filter for volatility model
+BPF <- function(param, x0, y, N = 100) {
+  T <- length(y) # number of states
+  #Initialize the parameters
+  A <- param[1] # coefficient 
+  Q <- param[2] # process noise 
+  C <- param[3] # coefficient 
+  R <- param[4] # measurement noise
+  
+  # define variables
+  particles <- matrix(0, nrow = N, ncol = T)
+  normalisedWeights <- matrix(0, nrow = N, ncol = T)
+  xHatFiltered <-rep(0, T)
+  
+  # Initialize variables for state 1
+  particles[ ,1] <- A*x0 + sqrt(Q)*rnorm(N)
+  
+  # Weighting step
+  weights <- dnorm(y[1], mean = C*particles[, 1], sd = sqrt(R))
+  # Normalize weights
+  sum_weight <- sum(weights)
+  normalisedWeights[, 1] <- weights / sum(weights)
+  # Estimate the state
+  xHatFiltered[1] <- sum(particles[, 1]*normalisedWeights[, 1])
+
+  for (t in 2:T) {
+    # Resampling step
+    newAncestors <- multinomial.resample(normalisedWeights[, t - 1])
+    
+    # Propagation step
+    particles[, t] <- A * particles[newAncestors, t-1] + 
+      sqrt(Q) * rnorm(N)
+    
+    # Weighting step
+    weights <- dnorm(y[t], mean = C*particles[, t], sd = sqrt(R))
+    
+    # Normalize weights
+    sum_weight <- sum(weights)
+    normalisedWeights[, t] <- weights / sum(weights)
+    
+    # Estimate the state
+    xHatFiltered[t] <- sum(particles[, t]*normalisedWeights[, t])
+  }
+  
+  return(list(xHatFiltered = xHatFiltered,
+              particles = particles,
+              normalisedWeights = normalisedWeights))
+  
+}
+```
+
+Comparision of BPF and KF.
+
+```{r}
+param <- c(0.7, 0.01, 0.5, 0.01)
+p0 <- 1
+x0 <- rnorm(1)
+result <- kalman_filter(param, x0, p0, y)
+means_kf <- result$means_filtered
+
+x0 <- rnorm(N)
+result = BPF(param, x0, y, N = N)
+means_bpf =  result$xHatFiltered
+
+p <- plot_ly()
+
+p <- add_lines(p, x = c(1:T), y = x, line = list(color = "blue"),
+        name = 'Simulated States', type = 'scatter', mode = 'lines')
+
+p <- add_lines(p, x = c(1:T), y = means_kf, line = list(color = "red"),
+        name = 'KF states', type = 'scatter', mode = 'lines')
+
+p <- add_lines(p, x = c(1:T), y = means_bpf, line = list(color = "green"),
+        name = 'BPF states', type = 'scatter', mode = 'lines')
+p
+```
+
+```{r}
+# Simulate data with Q=0
+T <- 100
+x <- rep(0, T)
+y <- rep(0, T)
+x0 <- rnorm(1)
+A <- 0.7
+C <- 0.5
+Q <- 0
+R <- 0.1
+
+x[1] <- A*x0 + sqrt(Q)*rnorm(1)
+y[1] <- C*x[1] + rnorm(1, 0, .1)
+for (t in 2:T) {
+  x[t] <- A*x[t-1] + sqrt(Q)*rnorm(1)
+  y[t] <- C*x[t] + rnorm(1, 0, .1)
+}
+
+param <- c(0.7, 0, 0.5, 0.01)
+p0 <- 1
+result <- kalman_filter(param, x0, p0, y)
+means_kf <- result$means_filtered
+
+result = BPF(param, x0, y, N = N)
+means_bpf =  result$xHatFiltered
+
+p <- plot_ly()
+
+p <- add_lines(p, x = c(1:T), y = x, line = list(color = "blue"),
+        name = 'Simulated States', type = 'scatter', mode = 'lines')
+
+p <- add_lines(p, x = c(1:T), y = means_kf, line = list(color = "red"),
+        name = 'KF states', type = 'scatter', mode = 'lines')
+
+p <- add_lines(p, x = c(1:T), y = means_bpf, line = list(color = "green"),
+        name = 'BPF states', type = 'scatter', mode = 'lines')
+p
+```
+
+Compute MSE
+```{r}
+M <- 50
+mses = rep(0, T)
+
+# Get the exact solution
+result <- kalman_filter(param, x0, p0, y)
+means_kf <- result$means_filtered
+
+# Iterate and repeatedly calculate approximation
+for(i in 1:M)
+{
+  result = BPF(param, x0, y, N = N)
+  means_bpf =  result$xHatFiltered
+  # Add to mean squared errors
+  mses = mses + (means_bpf - means_kf)^2
+}
+    
+# Divide by number of repetitions
+mses = mses/M
+
+plot(c(1:T), mses, xlab = "Time", ylab = "MSE", type = "l")
+```
+

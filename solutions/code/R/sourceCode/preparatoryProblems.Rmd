@@ -1,0 +1,86 @@
+---
+title: 'SMC2017: Preparatory exercises'
+author: "Niharika"
+date: "June 15, 2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r, echo=FALSE}
+setwd("~/RProjects/SMC_course/")
+```
+
+This document provides solution for the proparatory problems set given at  <http://www.it.uu.se/research/systems_and_control/education/2017/smc/schedule/SMC2017_preparatory.pdf>.
+
+
+
+
+## P.1 Random number generation basics
+
+#### (a) Sample 1000 random numbers from N(0,2)
+
+```{r}
+norm_data <- rnorm(1000, mean = 0, sd = sqrt(2))
+x <- seq(-6, 6, length = 1000)
+y <- dnorm(x, mean = 0, sd = sqrt(2))
+#Plot the generated samples and the density function.
+h <- hist(norm_data, breaks = 20, probability = TRUE, 
+           xlim = c(-6,6), col = "blue", lty = "blank",
+          main = "Sample from N(0,2)", xlab = "", ylab = "")
+lines(x, y,  type = "l", col = "orange")
+```
+
+#### (b) Inverse transform sampling, from N(0,1) using U(0,1)
+
+```{r}
+unif_data <- runif(1000, 0, 1)
+norm_data <- qnorm(unif_data, mean = 0, sd = 1) #transformed sample
+x <- seq(-4, 4, length = 1000)
+y <- dnorm(x, mean = 0, sd = 1)
+#Plot a histogram of the transformed samples and the density function.
+h <- hist(norm_data, breaks = 20, probability = TRUE, 
+          xlim = c(-5,5), col = "blue", lty = "blank",
+          main = "Sample from N(0,1)", xlab = "", ylab = "")
+lines(x, y,  type = "l", col = "orange")
+
+```
+
+
+#### (c) Affine transform
+
+Sample 1000 numbers from N(2,10) by first drawing from N(0,1) and then make the appropriate linear transformation.
+
+```{r}
+z <- rnorm(1000, 0, 1)
+x <- z*sqrt(10) + 2 
+# Calculate the variance of the transformed sample to check if the affine transform was chosen right.
+print(var(x))
+```
+
+
+#### (d) Setting the random seed in R.
+
+```{r}
+set.seed(2018)
+print(rnorm(5))
+set.seed(2018)
+print(rnorm(5))
+```
+
+
+#### P.2 Estimation of pi: Assume a unit circle inside a square of side 2.
+We draw n pairs of samples from (unif[-1,1], unif[-1,1]) and count the number of occurances of the points inside the unit circle. The probability of hitting inside the circle is $\frac{\pi}{4}$.
+```{r}
+x1 <- runif(1000, -1, 1)
+x2 <- runif(1000, -1, 1)
+m <- sum(x1^2 + x2^2 <= 1)
+pi <-  m/1000 * 4
+print(pi)
+```
+
+#### P.3 Analytical manipulation of Gaussian densitie
+See folder exercises_on_paper.
+
+
+
